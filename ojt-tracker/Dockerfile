@@ -18,8 +18,9 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
 # Copy package.json for npm
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+COPY package-lock.json* ./
+RUN npm install
 
 # Copy the rest of the app
 COPY . .
