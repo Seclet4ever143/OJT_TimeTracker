@@ -1,0 +1,6 @@
+ojt-tracker/node_modules
+ojt-tracker/.env
+.git
+ojt-tracker/public/build
+ojt-tracker/vendor
+ojt-tracker/storage/logs/*

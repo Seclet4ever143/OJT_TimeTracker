@@ -14,18 +14,18 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 
 # Copy composer files first for caching
-COPY composer.json composer.lock ./
+COPY ojt-tracker/composer.json ojt-tracker/composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
 # Copy package.json for npm
-COPY package.json ./
-COPY package-lock.json* ./
+COPY ojt-tracker/package.json ./
+COPY ojt-tracker/package-lock.json* ./
 RUN npm install
 
 # Copy the rest of the app
-COPY . .
+COPY ojt-tracker/ .
 
-# Run composer scripts (post-autoload-dump etc)
+# Run composer scripts
 RUN composer dump-autoload --optimize
 
 # Build frontend assets
