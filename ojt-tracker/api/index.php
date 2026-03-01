@@ -3,7 +3,15 @@
 // Serverless entry point for Vercel
 
 // Ensure /tmp directories exist for serverless (read-only filesystem)
-foreach (['/tmp/views', '/tmp/cache', '/tmp/cache/data', '/tmp/sessions', '/tmp/logs'] as $dir) {
+$tmpDirs = [
+    '/tmp/views',
+    '/tmp/cache',
+    '/tmp/cache/data',
+    '/tmp/sessions',
+    '/tmp/logs',
+    '/tmp/bootstrap-cache',
+];
+foreach ($tmpDirs as $dir) {
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
@@ -22,21 +30,34 @@ foreach ($storageDirs as $dir) {
     }
 }
 
-// Override env for serverless
-putenv('VIEW_COMPILED_PATH=/tmp/views');
-putenv('LOG_CHANNEL=stderr');
-putenv('SESSION_DRIVER=cookie');
-putenv('CACHE_STORE=array');
+// Copy bootstrap cache files to writable /tmp so Laravel can recompile if needed
+$bootstrapCache = __DIR__ . '/../bootstrap/cache';
+foreach (['services.php', 'packages.php'] as $cacheFile) {
+    $src = $bootstrapCache . '/' . $cacheFile;
+    $dst = '/tmp/bootstrap-cache/' . $cacheFile;
+    if (file_exists($src) && !file_exists($dst)) {
+        copy($src, $dst);
+    }
+}
 
-$_ENV['VIEW_COMPILED_PATH'] = '/tmp/views';
-$_ENV['LOG_CHANNEL'] = 'stderr';
-$_ENV['SESSION_DRIVER'] = 'cookie';
-$_ENV['CACHE_STORE'] = 'array';
+// Set all env overrides for serverless
+$envOverrides = [
+    'VIEW_COMPILED_PATH' => '/tmp/views',
+    'LOG_CHANNEL' => 'stderr',
+    'SESSION_DRIVER' => 'cookie',
+    'CACHE_STORE' => 'array',
+    'APP_SERVICES_CACHE' => '/tmp/bootstrap-cache/services.php',
+    'APP_PACKAGES_CACHE' => '/tmp/bootstrap-cache/packages.php',
+    'APP_CONFIG_CACHE' => '/tmp/bootstrap-cache/config.php',
+    'APP_ROUTES_CACHE' => '/tmp/bootstrap-cache/routes-v7.php',
+    'APP_EVENTS_CACHE' => '/tmp/bootstrap-cache/events.php',
+];
 
-$_SERVER['VIEW_COMPILED_PATH'] = '/tmp/views';
-$_SERVER['LOG_CHANNEL'] = 'stderr';
-$_SERVER['SESSION_DRIVER'] = 'cookie';
-$_SERVER['CACHE_STORE'] = 'array';
+foreach ($envOverrides as $key => $value) {
+    putenv("$key=$value");
+    $_ENV[$key] = $value;
+    $_SERVER[$key] = $value;
+}
 
 try {
     require __DIR__ . '/../public/index.php';
