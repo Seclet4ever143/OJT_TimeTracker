@@ -24,7 +24,7 @@ export default function Guest({ children }: PropsWithChildren) {
                     </p>
                 </div>
 
-                <p className="text-sm text-blue-200/60">© 2026 OJT Tracker</p>
+                <p className="text-sm text-blue-200/60">© Aedrian Puspus - OJT Tracker 2026</p>
             </div>
 
             {/* Right panel — form */}
