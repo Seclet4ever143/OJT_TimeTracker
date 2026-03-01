@@ -9,6 +9,19 @@ foreach (['/tmp/views', '/tmp/cache', '/tmp/cache/data', '/tmp/sessions', '/tmp/
     }
 }
 
+// Also ensure storage framework dirs exist (may be needed by Laravel bootstrap)
+$storageDirs = [
+    __DIR__ . '/../storage/framework/views',
+    __DIR__ . '/../storage/framework/cache',
+    __DIR__ . '/../storage/framework/sessions',
+    __DIR__ . '/../storage/logs',
+];
+foreach ($storageDirs as $dir) {
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+}
+
 // Override env for serverless
 putenv('VIEW_COMPILED_PATH=/tmp/views');
 putenv('LOG_CHANNEL=stderr');
