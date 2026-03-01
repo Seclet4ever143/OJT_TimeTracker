@@ -1,2 +1,2 @@
-*
-!.gitignore
+# Allow cache files for Vercel deployment
+!*.php
