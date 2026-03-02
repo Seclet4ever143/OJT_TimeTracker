@@ -1,17 +1,22 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { Attendance, DiaryEntry } from '@/types';
+import { useState } from 'react';
 
 interface Props {
     todayAttendance: Attendance | null;
-    totalHours: number;
+    renderedHours: number;
+    excessHours: number;
+    requiredHours: number;
+    remainingHours: number;
+    completionPercent: number;
     daysCompleted: number;
     daysPresent: number;
     recentAttendance: Attendance[];
     recentDiaries: DiaryEntry[];
 }
 
-function SummaryCard({ label, value, icon, accent }: { label: string; value: string; icon: React.ReactNode; accent: string }) {
+function SummaryCard({ label, value, subtitle, icon, accent }: { label: string; value: string; subtitle?: string; icon: React.ReactNode; accent: string }) {
     return (
         <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
             <div className="flex items-center gap-4">
@@ -21,6 +26,7 @@ function SummaryCard({ label, value, icon, accent }: { label: string; value: str
                 <div>
                     <p className="text-sm text-gray-500">{label}</p>
                     <p className="text-2xl font-bold text-gray-900">{value}</p>
+                    {subtitle && <p className="text-xs text-gray-400">{subtitle}</p>}
                 </div>
             </div>
         </div>
@@ -48,9 +54,20 @@ const moodEmoji: Record<string, string> = {
     productive: '🚀',
 };
 
-export default function Dashboard({ todayAttendance, totalHours, daysCompleted, daysPresent, recentAttendance, recentDiaries }: Props) {
+export default function Dashboard({ todayAttendance, renderedHours, excessHours, requiredHours, remainingHours, completionPercent, daysCompleted, daysPresent, recentAttendance, recentDiaries }: Props) {
     const now = new Date();
     const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening';
+
+    const [editingHours, setEditingHours] = useState(false);
+    const form = useForm({ required_hours: String(requiredHours) });
+
+    const handleSaveRequiredHours = (e: React.FormEvent) => {
+        e.preventDefault();
+        form.patch(route('dashboard.updateRequiredHours'), {
+            preserveScroll: true,
+            onSuccess: () => setEditingHours(false),
+        });
+    };
 
     return (
         <AppLayout header="Dashboard">
@@ -66,12 +83,24 @@ export default function Dashboard({ todayAttendance, totalHours, daysCompleted, 
                 {/* Summary Cards */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <SummaryCard
-                        label="Total Hours"
-                        value={totalHours.toFixed(1)}
+                        label="Rendered Hours"
+                        value={renderedHours.toFixed(1)}
+                        subtitle="8AM–12PM & 1PM–5PM only"
                         accent="bg-blue-50 text-blue-600"
                         icon={
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        }
+                    />
+                    <SummaryCard
+                        label="Excess Hours"
+                        value={excessHours.toFixed(1)}
+                        subtitle="Outside renderable window"
+                        accent="bg-orange-50 text-orange-600"
+                        icon={
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
                             </svg>
                         }
                     />
@@ -82,16 +111,6 @@ export default function Dashboard({ todayAttendance, totalHours, daysCompleted, 
                         icon={
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                            </svg>
-                        }
-                    />
-                    <SummaryCard
-                        label="Days Present"
-                        value={String(daysPresent)}
-                        accent="bg-purple-50 text-purple-600"
-                        icon={
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                             </svg>
                         }
                     />
@@ -107,6 +126,90 @@ export default function Dashboard({ todayAttendance, totalHours, daysCompleted, 
                             </svg>
                         }
                     />
+                </div>
+
+                {/* Progress Towards Required Hours */}
+                <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-semibold text-gray-900">OJT Rendering Progress</h3>
+                            <p className="text-sm text-gray-500">
+                                {renderedHours.toFixed(1)} of{' '}
+                                {editingHours ? '' : `${requiredHours} hours rendered`}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {editingHours ? (
+                                <form onSubmit={handleSaveRequiredHours} className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="9999"
+                                        step="1"
+                                        value={form.data.required_hours}
+                                        onChange={(e) => form.setData('required_hours', e.target.value)}
+                                        className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        autoFocus
+                                    />
+                                    <span className="text-sm text-gray-500">hrs</span>
+                                    <button
+                                        type="submit"
+                                        disabled={form.processing}
+                                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        Save
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setEditingHours(false); form.setData('required_hours', String(requiredHours)); }}
+                                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                </form>
+                            ) : (
+                                <button
+                                    onClick={() => setEditingHours(true)}
+                                    className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 transition hover:text-blue-700"
+                                >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                                    </svg>
+                                    Set Hours
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="mt-4">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-gray-700">{completionPercent}%</span>
+                            <span className="text-gray-500">{remainingHours.toFixed(1)} hrs remaining</span>
+                        </div>
+                        <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                            <div
+                                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
+                                style={{ width: `${completionPercent}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500">Rendered</p>
+                            <p className="text-lg font-bold text-blue-600">{renderedHours.toFixed(1)}h</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500">Remaining</p>
+                            <p className="text-lg font-bold text-gray-900">{remainingHours.toFixed(1)}h</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500">Required</p>
+                            <p className="text-lg font-bold text-gray-900">{requiredHours}h</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Quick Actions */}

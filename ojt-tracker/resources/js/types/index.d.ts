@@ -10,6 +10,7 @@ export interface User {
     position?: string;
     supervisor?: string;
     address?: string;
+    required_hours: number;
 }
 
 export interface Attendance {

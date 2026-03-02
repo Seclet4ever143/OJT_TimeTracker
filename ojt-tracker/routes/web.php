@@ -20,6 +20,9 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    // Dashboard settings
+    Route::patch('/dashboard/required-hours', [DashboardController::class, 'updateRequiredHours'])->name('dashboard.updateRequiredHours');
+
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

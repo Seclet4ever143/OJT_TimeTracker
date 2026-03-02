@@ -29,6 +29,7 @@ class User extends Authenticatable
         'position',
         'supervisor',
         'address',
+        'required_hours',
     ];
 
     /**
@@ -52,6 +53,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'birthday' => 'date:Y-m-d',
+            'required_hours' => 'decimal:2',
         ];
     }
 
