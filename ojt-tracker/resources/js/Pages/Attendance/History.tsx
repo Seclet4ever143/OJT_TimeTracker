@@ -7,6 +7,9 @@ interface Props {
     attendances: PaginatedData<Attendance>;
     totalHours: number;
     daysCompleted: number;
+    requiredHours: number;
+    remainingHours: number;
+    completionPercent: number;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -159,7 +162,7 @@ function EditModal({ attendance, onClose }: { attendance: Attendance; onClose: (
 /* ------------------------------------------------------------------ */
 /*  History Page                                                      */
 /* ------------------------------------------------------------------ */
-export default function History({ attendances, totalHours, daysCompleted }: Props) {
+export default function History({ attendances, totalHours, daysCompleted, requiredHours, remainingHours, completionPercent }: Props) {
     const [editing, setEditing] = useState<Attendance | null>(null);
 
     return (
@@ -176,6 +179,42 @@ export default function History({ attendances, totalHours, daysCompleted }: Prop
                     <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
                         <p className="text-sm text-gray-500">Days Completed</p>
                         <p className="text-2xl font-bold text-gray-900">{daysCompleted}</p>
+                    </div>
+                </div>
+
+                {/* Rendering Progress */}
+                <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
+                    <h3 className="font-semibold text-gray-900">Rendering Progress</h3>
+                    <p className="text-sm text-gray-500">
+                        {totalHours.toFixed(1)} of {requiredHours} hours rendered
+                    </p>
+
+                    <div className="mt-4">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-gray-700">{completionPercent}%</span>
+                            <span className="text-gray-500">{remainingHours.toFixed(1)} hrs remaining</span>
+                        </div>
+                        <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                            <div
+                                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
+                                style={{ width: `${completionPercent}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500">Rendered</p>
+                            <p className="text-lg font-bold text-blue-600">{totalHours.toFixed(1)}h</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500">Remaining</p>
+                            <p className="text-lg font-bold text-gray-900">{remainingHours.toFixed(1)}h</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500">Required</p>
+                            <p className="text-lg font-bold text-gray-900">{requiredHours}h</p>
+                        </div>
                     </div>
                 </div>
 

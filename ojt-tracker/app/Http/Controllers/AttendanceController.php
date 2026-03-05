@@ -330,10 +330,19 @@ class AttendanceController extends Controller
             })
             ->count();
 
+        $requiredHours = (float) $user->required_hours;
+        $remainingHours = round(max($requiredHours - $totalHours, 0), 2);
+        $completionPercent = $requiredHours > 0
+            ? round(min(($totalHours / $requiredHours) * 100, 100), 1)
+            : 100;
+
         return Inertia::render('Attendance/History', [
-            'attendances'   => $attendances,
-            'totalHours'    => $totalHours,
-            'daysCompleted' => $daysCompleted,
+            'attendances'       => $attendances,
+            'totalHours'        => $totalHours,
+            'daysCompleted'     => $daysCompleted,
+            'requiredHours'     => $requiredHours,
+            'remainingHours'    => $remainingHours,
+            'completionPercent' => $completionPercent,
         ]);
     }
 }
