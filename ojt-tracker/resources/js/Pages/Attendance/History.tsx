@@ -1,10 +1,10 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import { Attendance, PaginatedData } from '@/types';
 import { useState } from 'react';
 
 interface Props {
-    attendances: PaginatedData<Attendance>;
+    attendances: PaginatedData<Attendance> | Attendance[];
     totalHours: number;
     daysCompleted: number;
     requiredHours: number;
@@ -164,6 +164,7 @@ function EditModal({ attendance, onClose }: { attendance: Attendance; onClose: (
 /* ------------------------------------------------------------------ */
 export default function History({ attendances, totalHours, daysCompleted, requiredHours, remainingHours, completionPercent }: Props) {
     const [editing, setEditing] = useState<Attendance | null>(null);
+    const rows = Array.isArray(attendances) ? attendances : attendances.data;
 
     return (
         <AppLayout header="Attendance History">
@@ -220,7 +221,7 @@ export default function History({ attendances, totalHours, daysCompleted, requir
 
                 {/* Table */}
                 <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm shadow-gray-100">
-                    <div className="overflow-x-auto">
+                    <div className="max-h-[70vh] overflow-x-auto overflow-y-auto">
                         <table className="min-w-full divide-y divide-gray-100">
                             <thead>
                                 <tr className="bg-gray-50/80">
@@ -235,14 +236,14 @@ export default function History({ attendances, totalHours, daysCompleted, requir
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {attendances.data.length === 0 ? (
+                                {rows.length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
                                             No attendance records found.
                                         </td>
                                     </tr>
                                 ) : (
-                                    attendances.data.map((a) => (
+                                    rows.map((a) => (
                                         <tr key={a.id} className="transition hover:bg-gray-50/50">
                                             <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
                                                 <div>
@@ -303,38 +304,6 @@ export default function History({ attendances, totalHours, daysCompleted, requir
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    {attendances.last_page > 1 && (
-                        <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3">
-                            <p className="text-sm text-gray-500">
-                                Showing {attendances.from}–{attendances.to} of {attendances.total}
-                            </p>
-                            <div className="flex gap-1">
-                                {attendances.links.map((link, i) => {
-                                    const classes = `rounded-lg px-3 py-1.5 text-sm transition ${
-                                        link.active
-                                            ? 'bg-blue-600 text-white'
-                                            : link.url
-                                            ? 'text-gray-600 hover:bg-gray-100'
-                                            : 'cursor-not-allowed text-gray-300'
-                                    }`;
-
-                                    return link.url ? (
-                                        <Link
-                                            key={i}
-                                            href={link.url}
-                                            preserveScroll
-                                            preserveState
-                                            className={classes}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ) : (
-                                        <span key={i} className={classes} dangerouslySetInnerHTML={{ __html: link.label }} />
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
