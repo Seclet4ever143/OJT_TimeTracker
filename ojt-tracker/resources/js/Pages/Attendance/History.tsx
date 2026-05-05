@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import { Attendance, PaginatedData } from '@/types';
 import { useState } from 'react';
 
@@ -165,15 +165,6 @@ function EditModal({ attendance, onClose }: { attendance: Attendance; onClose: (
 export default function History({ attendances, totalHours, daysCompleted, requiredHours, remainingHours, completionPercent }: Props) {
     const [editing, setEditing] = useState<Attendance | null>(null);
 
-    const goToPage = (url: string | null) => {
-        if (!url) return;
-
-        router.visit(url, {
-            preserveScroll: true,
-            preserveState: true,
-        });
-    };
-
     return (
         <AppLayout header="Attendance History">
             <Head title="Attendance History" />
@@ -319,22 +310,28 @@ export default function History({ attendances, totalHours, daysCompleted, requir
                                 Showing {attendances.from}–{attendances.to} of {attendances.total}
                             </p>
                             <div className="flex gap-1">
-                                {attendances.links.map((link, i) => (
-                                    <button
-                                        key={i}
-                                        type="button"
-                                        onClick={() => goToPage(link.url)}
-                                        disabled={!link.url}
-                                        className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                                            link.active
-                                                ? 'bg-blue-600 text-white'
-                                                : link.url
-                                                ? 'text-gray-600 hover:bg-gray-100'
-                                                : 'cursor-not-allowed text-gray-300'
-                                        }`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ))}
+                                {attendances.links.map((link, i) => {
+                                    const classes = `rounded-lg px-3 py-1.5 text-sm transition ${
+                                        link.active
+                                            ? 'bg-blue-600 text-white'
+                                            : link.url
+                                            ? 'text-gray-600 hover:bg-gray-100'
+                                            : 'cursor-not-allowed text-gray-300'
+                                    }`;
+
+                                    return link.url ? (
+                                        <Link
+                                            key={i}
+                                            href={link.url}
+                                            preserveScroll
+                                            preserveState
+                                            className={classes}
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                        />
+                                    ) : (
+                                        <span key={i} className={classes} dangerouslySetInnerHTML={{ __html: link.label }} />
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
