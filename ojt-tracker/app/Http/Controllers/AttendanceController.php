@@ -321,7 +321,7 @@ class AttendanceController extends Controller
 
         $attendances = Attendance::where('user_id', $user->id)
             ->orderBy('date', 'desc')
-            ->paginate(15);
+            ->get();
 
         $totalHours = (float) Attendance::where('user_id', $user->id)->sum('total_hours');
         $daysCompleted = Attendance::where('user_id', $user->id)
