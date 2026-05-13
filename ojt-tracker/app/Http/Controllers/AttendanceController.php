@@ -21,8 +21,13 @@ class AttendanceController extends Controller
             ->where('date', $today)
             ->first();
 
+        $attendances = Attendance::where('user_id', $user->id)
+            ->orderBy('date', 'desc')
+            ->get();
+
         return Inertia::render('Attendance/TimeInOut', [
             'todayAttendance' => $todayAttendance,
+            'attendances' => $attendances,
         ]);
     }
 
@@ -32,16 +37,24 @@ class AttendanceController extends Controller
 
     public function amTimeIn(Request $request)
     {
-        $request->validate(['custom_time' => 'nullable|date_format:H:i']);
+        $request->validate([
+            'custom_time' => 'nullable|date_format:H:i',
+            'date' => 'nullable|date|before_or_equal:today',
+        ]);
 
         $user = $request->user();
-        $today = Carbon::today();
+        $date = $request->input('date') ? Carbon::parse($request->input('date'))->startOfDay() : Carbon::today();
+
+        if (!$request->input('custom_time') && !$date->isToday()) {
+            return back()->with('error', 'Please select a time for past dates.');
+        }
+
         $time  = $request->input('custom_time')
-            ? Carbon::parse($today->format('Y-m-d') . ' ' . $request->input('custom_time'))
+            ? Carbon::parse($date->format('Y-m-d') . ' ' . $request->input('custom_time'))
             : Carbon::now();
 
         $attendance = Attendance::firstOrCreate(
-            ['user_id' => $user->id, 'date' => $today],
+            ['user_id' => $user->id, 'date' => $date],
             ['status' => $time->hour >= 9 ? 'late' : 'present']
         );
 
@@ -59,16 +72,24 @@ class AttendanceController extends Controller
 
     public function amTimeOut(Request $request)
     {
-        $request->validate(['custom_time' => 'nullable|date_format:H:i']);
+        $request->validate([
+            'custom_time' => 'nullable|date_format:H:i',
+            'date' => 'nullable|date|before_or_equal:today',
+        ]);
 
         $user = $request->user();
-        $today = Carbon::today();
+        $date = $request->input('date') ? Carbon::parse($request->input('date'))->startOfDay() : Carbon::today();
+
+        if (!$request->input('custom_time') && !$date->isToday()) {
+            return back()->with('error', 'Please select a time for past dates.');
+        }
+
         $time  = $request->input('custom_time')
-            ? Carbon::parse($today->format('Y-m-d') . ' ' . $request->input('custom_time'))
+            ? Carbon::parse($date->format('Y-m-d') . ' ' . $request->input('custom_time'))
             : Carbon::now();
 
         $attendance = Attendance::where('user_id', $user->id)
-            ->where('date', $today)
+            ->where('date', $date)
             ->first();
 
         if (!$attendance || !$attendance->am_time_in) {
@@ -90,16 +111,24 @@ class AttendanceController extends Controller
 
     public function pmTimeIn(Request $request)
     {
-        $request->validate(['custom_time' => 'nullable|date_format:H:i']);
+        $request->validate([
+            'custom_time' => 'nullable|date_format:H:i',
+            'date' => 'nullable|date|before_or_equal:today',
+        ]);
 
         $user = $request->user();
-        $today = Carbon::today();
+        $date = $request->input('date') ? Carbon::parse($request->input('date'))->startOfDay() : Carbon::today();
+
+        if (!$request->input('custom_time') && !$date->isToday()) {
+            return back()->with('error', 'Please select a time for past dates.');
+        }
+
         $time  = $request->input('custom_time')
-            ? Carbon::parse($today->format('Y-m-d') . ' ' . $request->input('custom_time'))
+            ? Carbon::parse($date->format('Y-m-d') . ' ' . $request->input('custom_time'))
             : Carbon::now();
 
         $attendance = Attendance::firstOrCreate(
-            ['user_id' => $user->id, 'date' => $today],
+            ['user_id' => $user->id, 'date' => $date],
             ['status' => 'present']
         );
 
@@ -117,16 +146,24 @@ class AttendanceController extends Controller
 
     public function pmTimeOut(Request $request)
     {
-        $request->validate(['custom_time' => 'nullable|date_format:H:i']);
+        $request->validate([
+            'custom_time' => 'nullable|date_format:H:i',
+            'date' => 'nullable|date|before_or_equal:today',
+        ]);
 
         $user = $request->user();
-        $today = Carbon::today();
+        $date = $request->input('date') ? Carbon::parse($request->input('date'))->startOfDay() : Carbon::today();
+
+        if (!$request->input('custom_time') && !$date->isToday()) {
+            return back()->with('error', 'Please select a time for past dates.');
+        }
+
         $time  = $request->input('custom_time')
-            ? Carbon::parse($today->format('Y-m-d') . ' ' . $request->input('custom_time'))
+            ? Carbon::parse($date->format('Y-m-d') . ' ' . $request->input('custom_time'))
             : Carbon::now();
 
         $attendance = Attendance::where('user_id', $user->id)
-            ->where('date', $today)
+            ->where('date', $date)
             ->first();
 
         if (!$attendance || !$attendance->pm_time_in) {
@@ -150,14 +187,15 @@ class AttendanceController extends Controller
     {
         $request->validate([
             'session' => 'required|in:am,pm',
+            'date' => 'nullable|date|before_or_equal:today',
         ]);
 
         $user = $request->user();
-        $today = Carbon::today();
+        $date = $request->input('date') ? Carbon::parse($request->input('date'))->startOfDay() : Carbon::today();
         $session = $request->input('session'); // 'am' or 'pm'
 
         $attendance = Attendance::where('user_id', $user->id)
-            ->where('date', $today)
+            ->where('date', $date)
             ->first();
 
         if (!$attendance) {

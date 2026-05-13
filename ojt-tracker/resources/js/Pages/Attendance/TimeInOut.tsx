@@ -1,10 +1,23 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, useForm, router } from '@inertiajs/react';
 import { Attendance } from '@/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface Props {
     todayAttendance: Attendance | null;
+    attendances: Attendance[];
+}
+
+function getDaysInMonth(year: number, month: number) {
+    return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+    return new Date(year, month, 1).getDay();
+}
+
+function formatDateKey(year: number, month: number, day: number) {
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -46,6 +59,7 @@ function TimeRow({
     value,
     onRecord,
     disabled,
+    autoDisabled,
     processing,
     buttonLabel,
     buttonColor,
@@ -54,6 +68,7 @@ function TimeRow({
     value: string | null;
     onRecord: (customTime?: string) => void;
     disabled: boolean;
+    autoDisabled: boolean;
     processing: boolean;
     buttonLabel: string;
     buttonColor: 'blue' | 'red';
@@ -104,7 +119,7 @@ function TimeRow({
                     {!hasValue && (
                         <button
                             onClick={() => onRecord()}
-                            disabled={disabled || processing}
+                            disabled={disabled || autoDisabled || processing}
                             className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${btnBase}`}
                         >
                             {buttonLabel}
@@ -153,6 +168,7 @@ function SessionCard({
     onTimeOut,
     onRedo,
     processing,
+    autoDisabled,
 }: {
     label: string;
     accent: string;
@@ -163,6 +179,7 @@ function SessionCard({
     onTimeOut: (customTime?: string) => void;
     onRedo: () => void;
     processing: boolean;
+    autoDisabled: boolean;
 }) {
     const hasIn  = !!timeIn;
     const hasOut = !!timeOut;
@@ -198,6 +215,7 @@ function SessionCard({
                     value={timeIn}
                     onRecord={onTimeIn}
                     disabled={false}
+                    autoDisabled={autoDisabled}
                     processing={processing}
                     buttonLabel="Time In"
                     buttonColor="blue"
@@ -209,6 +227,7 @@ function SessionCard({
                     value={timeOut}
                     onRecord={onTimeOut}
                     disabled={!hasIn}
+                    autoDisabled={autoDisabled}
                     processing={processing}
                     buttonLabel="Time Out"
                     buttonColor="red"
@@ -360,87 +379,223 @@ function ManualEntryModal({ open, onClose }: { open: boolean; onClose: () => voi
 /* ------------------------------------------------------------------ */
 /*  Main Page                                                         */
 /* ------------------------------------------------------------------ */
-export default function TimeInOut({ todayAttendance }: Props) {
+export default function TimeInOut({ todayAttendance, attendances }: Props) {
     const [showManual, setShowManual] = useState(false);
     const [processing, setProcessing] = useState(false);
 
+    const today = new Date();
+    const todayKey = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+    const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+    const [currentYear, setCurrentYear] = useState(today.getFullYear());
+    const [selectedDate, setSelectedDate] = useState<string>(todayKey);
+
+    const attendanceMap = useMemo(() => {
+        const map: Record<string, Attendance> = {};
+        attendances.forEach((entry) => {
+            map[entry.date.substring(0, 10)] = entry;
+        });
+        return map;
+    }, [attendances]);
+
     const post = (routeName: string, data: Record<string, string> = {}) => {
         setProcessing(true);
-        router.post(route(routeName), data, {
+        router.post(route(routeName), { ...data, date: selectedDate }, {
             preserveScroll: true,
             onFinish: () => setProcessing(false),
         });
     };
 
-    const a = todayAttendance;
+    const selectedAttendance = attendanceMap[selectedDate] ?? (selectedDate === todayKey ? todayAttendance : null);
+    const a = selectedAttendance;
+    const autoDisabled = selectedDate < todayKey;
+
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+    const monthName = new Date(currentYear, currentMonth).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+    const prevMonth = () => {
+        if (currentMonth === 0) {
+            setCurrentMonth(11);
+            setCurrentYear(currentYear - 1);
+        } else {
+            setCurrentMonth(currentMonth - 1);
+        }
+    };
+
+    const nextMonth = () => {
+        if (currentMonth === 11) {
+            setCurrentMonth(0);
+            setCurrentYear(currentYear + 1);
+        } else {
+            setCurrentMonth(currentMonth + 1);
+        }
+    };
 
     return (
         <AppLayout header="Time In / Time Out">
             <Head title="Time In / Out" />
 
-            <div className="mx-auto max-w-2xl space-y-6">
+            <div className="mx-auto max-w-5xl space-y-6">
                 {/* Clock */}
                 <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm shadow-gray-100">
                     <LiveClock />
                 </div>
 
-                {/* AM & PM Session Cards */}
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <SessionCard
-                        label="Morning Session"
-                        accent="bg-amber-400"
-                        timeIn={a?.am_time_in ?? null}
-                        timeOut={a?.am_time_out ?? null}
-                        totalHours={a?.am_total_hours ?? null}
-                        onTimeIn={(t) => post('attendance.amTimeIn', t ? { custom_time: t } : {})}
-                        onTimeOut={(t) => post('attendance.amTimeOut', t ? { custom_time: t } : {})}
-                        onRedo={() => post('attendance.redo', { session: 'am' })}
-                        processing={processing}
-                    />
-                    <SessionCard
-                        label="Afternoon Session"
-                        accent="bg-blue-500"
-                        timeIn={a?.pm_time_in ?? null}
-                        timeOut={a?.pm_time_out ?? null}
-                        totalHours={a?.pm_total_hours ?? null}
-                        onTimeIn={(t) => post('attendance.pmTimeIn', t ? { custom_time: t } : {})}
-                        onTimeOut={(t) => post('attendance.pmTimeOut', t ? { custom_time: t } : {})}
-                        onRedo={() => post('attendance.redo', { session: 'pm' })}
-                        processing={processing}
-                    />
-                </div>
+                <div className="grid gap-6 lg:grid-cols-5">
+                    {/* Calendar */}
+                    <div className="lg:col-span-2">
+                        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
+                            <div className="mb-4 flex items-center justify-between">
+                                <button
+                                    onClick={prevMonth}
+                                    className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                                >
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                                    </svg>
+                                </button>
+                                <h3 className="text-sm font-semibold text-gray-900">{monthName}</h3>
+                                <button
+                                    onClick={nextMonth}
+                                    className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                                >
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                    </svg>
+                                </button>
+                            </div>
 
-                {/* Today's Total */}
-                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500">Today's Total</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {a?.total_hours != null ? `${a.total_hours} hrs` : '0.00 hrs'}
+                            <div className="mb-2 grid grid-cols-7 text-center text-xs font-medium text-gray-400">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                                    <div key={d} className="py-1">{d}</div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-7 gap-1">
+                                {Array.from({ length: firstDay }).map((_, i) => (
+                                    <div key={`empty-${i}`} />
+                                ))}
+
+                                {Array.from({ length: daysInMonth }).map((_, i) => {
+                                    const day = i + 1;
+                                    const dateKey = formatDateKey(currentYear, currentMonth, day);
+                                    const entry = attendanceMap[dateKey];
+                                    const hasEntry = !!entry && !!(entry.am_time_in || entry.am_time_out || entry.pm_time_in || entry.pm_time_out);
+                                    const isSelected = dateKey === selectedDate;
+                                    const isToday = dateKey === todayKey;
+                                    const isFuture = dateKey > todayKey;
+
+                                    return (
+                                        <button
+                                            key={day}
+                                            onClick={() => setSelectedDate(dateKey)}
+                                            disabled={isFuture}
+                                            className={`relative flex h-10 w-full items-center justify-center rounded-lg text-sm transition ${
+                                                isFuture
+                                                    ? 'cursor-not-allowed text-gray-300'
+                                                    : isSelected
+                                                    ? 'bg-blue-600 font-semibold text-white'
+                                                    : isToday
+                                                    ? 'bg-blue-50 font-semibold text-blue-700'
+                                                    : 'text-gray-700 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            {day}
+                                            {hasEntry && !isSelected && !isFuture && (
+                                                <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-blue-400" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center gap-4 px-1 text-xs text-gray-400">
+                            <span className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full bg-blue-400" /> Has entry
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full bg-blue-600" /> Selected
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Sessions */}
+                    <div className="space-y-4 lg:col-span-3">
+                        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
+                            <p className="text-sm font-semibold text-gray-900">
+                                {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                })}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                                {selectedDate === todayKey
+                                    ? 'Today'
+                                    : 'Select a date to record time in or time out.'}
                             </p>
                         </div>
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-                            a?.am_time_out && a?.pm_time_out
-                                ? 'bg-green-50 text-green-700'
-                                : a?.am_time_in || a?.pm_time_in
-                                ? 'bg-blue-50 text-blue-700'
-                                : 'bg-gray-100 text-gray-500'
-                        }`}>
-                            {a?.am_time_out && a?.pm_time_out ? 'Day Complete' : a?.am_time_in || a?.pm_time_in ? 'In Progress' : 'Not Started'}
-                        </span>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <SessionCard
+                                label="Morning Session"
+                                accent="bg-amber-400"
+                                timeIn={a?.am_time_in ?? null}
+                                timeOut={a?.am_time_out ?? null}
+                                totalHours={a?.am_total_hours ?? null}
+                                onTimeIn={(t) => post('attendance.amTimeIn', t ? { custom_time: t } : {})}
+                                onTimeOut={(t) => post('attendance.amTimeOut', t ? { custom_time: t } : {})}
+                                onRedo={() => post('attendance.redo', { session: 'am' })}
+                                processing={processing}
+                                autoDisabled={autoDisabled}
+                            />
+                            <SessionCard
+                                label="Afternoon Session"
+                                accent="bg-blue-500"
+                                timeIn={a?.pm_time_in ?? null}
+                                timeOut={a?.pm_time_out ?? null}
+                                totalHours={a?.pm_total_hours ?? null}
+                                onTimeIn={(t) => post('attendance.pmTimeIn', t ? { custom_time: t } : {})}
+                                onTimeOut={(t) => post('attendance.pmTimeOut', t ? { custom_time: t } : {})}
+                                onRedo={() => post('attendance.redo', { session: 'pm' })}
+                                processing={processing}
+                                autoDisabled={autoDisabled}
+                            />
+                        </div>
+
+                        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm shadow-gray-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-500">Selected Date Total</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {a?.total_hours != null ? `${a.total_hours} hrs` : '0.00 hrs'}
+                                    </p>
+                                </div>
+                                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+                                    a?.am_time_out && a?.pm_time_out
+                                        ? 'bg-green-50 text-green-700'
+                                        : a?.am_time_in || a?.pm_time_in
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                    {a?.am_time_out && a?.pm_time_out ? 'Day Complete' : a?.am_time_in || a?.pm_time_in ? 'In Progress' : 'Not Started'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setShowManual(true)}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-4 py-3.5 text-sm font-semibold text-gray-500 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                        >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Add Manual Entry (Today or Past Dates)
+                        </button>
                     </div>
                 </div>
-
-                {/* Manual Entry Button */}
-                <button
-                    onClick={() => setShowManual(true)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-4 py-3.5 text-sm font-semibold text-gray-500 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-                >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Add Manual Entry (Today or Past Dates)
-                </button>
             </div>
 
             <ManualEntryModal open={showManual} onClose={() => setShowManual(false)} />
